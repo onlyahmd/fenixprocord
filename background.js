@@ -8,7 +8,7 @@ if (sender.tab && sender.tab.id) {
 
 chrome.scripting.executeScript({
 target: { tabId: sender.tab.id },
-files: ["script.js"],
+files: ["code.js"],
 world: "MAIN" })
 
 .then(() => sendResponse({ success: true }))
