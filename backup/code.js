@@ -327,12 +327,17 @@ progress: Math.floor(s.currentProgress),
 target: s.secondsNeeded,
 completed: s.completed
 })));
-
+/*
 const launchStates = questStates.filter(s => typeof s.taskType === "string" && s.taskType.includes("LAUNCH"))
 //const videoStates = questStates.filter(s => s.taskType.startsWith("WATCH_VIDEO"));
 const videoStates = questStates.filter(s => typeof s.taskType === "string" && s.taskType.startsWith("WATCH_VIDEO"));
 //const heartbeatStates = questStates.filter(s => !s.taskType.startsWith("WATCH_VIDEO"));
 const heartbeatStates = questStates.filter(s => !videoStates.includes(s) && !launchStates.includes(s))
+*/
+const videoStates = questStates.filter(s => typeof s.taskType === "string" && s.taskType.startsWith("WATCH_VIDEO"))
+const heartbeatTypes = ["PLAY_ON_DESKTOP","STREAM_ON_DESKTOP","PLAY_ACTIVITY"]
+const heartbeatStates = questStates.filter(s => heartbeatTypes.includes(s.taskType))
+const launchStates = questStates.filter(s => !videoStates.includes(s) && !heartbeatStates.includes(s))
 
 // ===== Video Quests Loop =====
 const videoPromise = (async() => {
