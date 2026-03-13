@@ -1,0 +1,42 @@
+{
+"manifest_version": 3,
+"name": "Fenix Procord",
+"version": "1.0.0",
+"description": "Developed By @onlyahmd — All rights reserved 2019 ©",
+"icons": {
+"16": "icon.png",
+"48": "icon.png",
+"128": "icon.png"
+},
+"permissions": [
+"declarativeNetRequestWithHostAccess",
+"scripting",
+"activeTab"
+],
+"host_permissions": ["https://discord.com/*"],
+"background": {
+"service_worker": "background.js"
+},
+"content_scripts": [
+{
+"matches": ["https://discord.com/*"],
+"js": ["home.js"],
+"run_at": "document_idle"
+},
+{
+"matches": ["https://discord.com/*"],
+"js": ["agent.js"],
+"run_at": "document_start",
+"world": "MAIN"
+}
+],
+"declarative_net_request": {
+"rule_resources": [
+{
+"id": "ruleset_1",
+"enabled": true,
+"path": "rules.json"
+}
+]
+}
+}
