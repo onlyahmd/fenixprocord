@@ -237,6 +237,64 @@ console.error(`%c[Heartbeat Quest Error] "${questName}"`,"color:red;font-weight:
 }
 
 // ========================================
+// 🚀 Launch Quest Step
+// ========================================
+async function processLaunchStep(state, stores) {
+
+const { api } = stores
+const { quest, questName } = state
+
+try {
+
+console.log(
+`%c[Launch Quest] Starting "${questName}"`,
+"color:purple;font-weight:bold;"
+)
+
+// محاولة إطلاق الكويست
+const res = await api.post({
+url: `/quests/${quest.id}/launch`,
+body: {}
+})
+
+// بعض الكويستات تحتاج claim بعد launch
+try {
+await api.post({
+url: `/quests/${quest.id}/claim`,
+body: {}
+})
+} catch(e){}
+
+// تحديث الحالة
+state.currentProgress = state.secondsNeeded || 1
+state.completed = true
+
+sendUpdate("QUEST_UPDATE",{
+id: quest.id,
+name: questName,
+progress: state.currentProgress,
+target: state.secondsNeeded || 1,
+completed: true
+})
+
+console.log(
+`%c[Launch Quest Completed] "${questName}" ✅`,
+"color:yellow;font-weight:bold;"
+)
+
+} catch(error) {
+
+console.error(
+`%c[Launch Quest Error] "${questName}"`,
+"color:red;font-weight:bold;",
+error
+)
+
+}
+
+}
+
+// ========================================
 // 9️⃣ Helper: Get Voice Channel ID
 // ========================================
 function getVoiceChannelId(ChannelStore,GuildChannelStore) {
@@ -270,9 +328,11 @@ target: s.secondsNeeded,
 completed: s.completed
 })));
 
-//const videoStates = questStates.filter(s=>s.taskType.startsWith("WATCH_VIDEO"));
+const launchStates = questStates.filter(s => typeof s.taskType === "string" && s.taskType.startsWith("LAUNCH"))
+//const videoStates = questStates.filter(s => s.taskType.startsWith("WATCH_VIDEO"));
 const videoStates = questStates.filter(s => typeof s.taskType === "string" && s.taskType.startsWith("WATCH_VIDEO"));
-const heartbeatStates = questStates.filter(s=>!s.taskType.startsWith("WATCH_VIDEO"));
+//const heartbeatStates = questStates.filter(s => !s.taskType.startsWith("WATCH_VIDEO"));
+const heartbeatStates = questStates.filter(s => !videoStates.includes(s) && !launchStates.includes(s))
 
 // ===== Video Quests Loop =====
 const videoPromise = (async() => {
@@ -294,7 +354,21 @@ await new Promise(r=>setTimeout(r,SETTINGS.HEARTBEAT_INTERVAL_MS));
 }
 })();
 
-await Promise.all([videoPromise,heartbeatPromise]);
+// ===== Launch Quests =====
+const launchPromise = (async() => {
+for(const state of launchStates){
+if(!state.completed)
+await processLaunchStep(state,stores)
+}
+})();
+
+//await Promise.all([videoPromise,heartbeatPromise]);
+await Promise.all([
+videoPromise,
+heartbeatPromise,
+launchPromise
+]);
+
 }
 
 // ========================================
