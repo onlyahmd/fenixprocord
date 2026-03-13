@@ -639,7 +639,7 @@ toastContainer.classList.add("fenix-tool")
 
 
 
-function runQuestScript(){
+function runQuestScript() {
 
 // ========================================
 // ⚙️ SETTINGS PANEL
@@ -764,7 +764,8 @@ const isExpired = new Date(q.config.expiresAt).getTime() <= Date.now();
 const isCompleted = !!q.userStatus?.completedAt;
 const isEnrolled = !!q.userStatus?.enrolledAt;
 const taskConfig = q.config.taskConfig ?? q.config.taskConfigV2;
-const hasSupportedTask = supportedTasks.some(t => taskConfig.tasks[t] !== null);
+//const hasSupportedTask = supportedTasks.some(t => taskConfig.tasks[t] !== null);
+const hasSupportedTask = Object.keys(taskConfig.tasks || {}).length > 0;
 return isEnrolled && !isCompleted && !isExpired && hasSupportedTask;
 });
 }
@@ -775,7 +776,8 @@ return isEnrolled && !isCompleted && !isExpired && hasSupportedTask;
 function initializeQuestState(quest) {
 const taskConfig = quest.config.taskConfig ?? quest.config.taskConfigV2;
 const supportedTasks = ["WATCH_VIDEO","PLAY_ON_DESKTOP","STREAM_ON_DESKTOP","PLAY_ACTIVITY","WATCH_VIDEO_ON_MOBILE"];
-const taskType = supportedTasks.find(t => taskConfig.tasks[t] !== undefined && taskConfig.tasks[t] !== null);
+//const taskType = supportedTasks.find(t => taskConfig.tasks[t] !== undefined && taskConfig.tasks[t] !== null);
+const taskType = Object.keys(taskConfig.tasks || {})[0];
 const secondsNeeded = taskConfig.tasks[taskType]?.target ?? 0;
 const currentProgress = quest.userStatus?.progress?.[taskType]?.value ?? quest.userStatus?.streamProgressSeconds ?? 0;
 
@@ -907,7 +909,8 @@ target: s.secondsNeeded,
 completed: s.completed
 })));
 
-const videoStates = questStates.filter(s=>s.taskType.startsWith("WATCH_VIDEO"));
+//const videoStates = questStates.filter(s=>s.taskType.startsWith("WATCH_VIDEO"));
+const videoStates = questStates.filter(s => typeof s.taskType === "string" && s.taskType.startsWith("WATCH_VIDEO"));
 const heartbeatStates = questStates.filter(s=>!s.taskType.startsWith("WATCH_VIDEO"));
 
 // ===== Video Quests Loop =====
