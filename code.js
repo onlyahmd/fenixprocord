@@ -940,7 +940,16 @@ await Promise.all([videoPromise,heartbeatPromise]);
 // ========================================
 // 🚀 START SCRIPT
 // ========================================
-waitForWebpack(runQuestCode);
+function startWhenDiscordReady(){
+if (typeof window.webpackChunkdiscord_app !== "undefined"){
+waitForWebpack(runQuestCode)
+return
+}
+
+setTimeout(startWhenDiscordReady,1000)
+}
+
+startWhenDiscordReady()
 
 }
 
