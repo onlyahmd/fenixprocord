@@ -239,56 +239,72 @@ console.error(`%c[Heartbeat Quest Error] "${questName}"`,"color:red;font-weight:
 // ========================================
 // 🚀 Launch Quest Step
 // ========================================
-async function processLaunchStep(state, stores) {
+async function processLaunchStep(state, stores){
 
-const { api } = stores
-const { quest, questName } = state
+const { quest, questName, secondsNeeded } = state
+const { RunningGameStore, FluxDispatcher, api } = stores
 
-try {
+try{
 
-console.log(
-`%c[Launch Quest] Starting "${questName}"`,
-"color:purple;font-weight:bold;"
-)
+console.log(`[Launch Quest] Starting "${questName}"`)
 
-// محاولة إطلاق الكويست
+const fakeGame = {
+cmdLine: "fake_game.exe",
+exeName: "fake_game.exe",
+exePath: "C:\\fake_game.exe",
+hidden: false,
+isLauncher: false,
+name: questName,
+pid: Math.floor(Math.random()*30000)+1000,
+pidPath: [Math.floor(Math.random()*30000)+1000],
+processName: questName,
+start: Date.now()
+}
+
+// تشغيل اللعبة الوهمية
+FluxDispatcher.dispatch({
+type: "RUNNING_GAMES_CHANGE",
+added: [fakeGame],
+removed: [],
+games: [fakeGame]
+})
+
+// إرسال heartbeat
+let progress = 0
+
+while(progress < secondsNeeded){
+
 const res = await api.post({
-url: `/quests/${quest.id}/launch`,
-body: {}
+url: `/quests/${quest.id}/heartbeat`,
+body:{
+stream_key:`call:${quest.id}:1`,
+terminal:false
+}
 })
 
-// بعض الكويستات تحتاج claim بعد launch
-try {
-await api.post({
-url: `/quests/${quest.id}/claim`,
-body: {}
-})
-} catch(e){}
+progress = res.body?.progress?.[state.taskType]?.value ?? progress + 10
 
-// تحديث الحالة
-state.currentProgress = state.secondsNeeded || 1
+console.log(`[Launch Quest] ${progress}/${secondsNeeded}`)
+
+await new Promise(r=>setTimeout(r,2000))
+
+}
+
+// إيقاف اللعبة
+FluxDispatcher.dispatch({
+type:"RUNNING_GAMES_CHANGE",
+added:[],
+removed:[fakeGame],
+games:[]
+})
+
 state.completed = true
 
-sendUpdate("QUEST_UPDATE",{
-id: quest.id,
-name: questName,
-progress: state.currentProgress,
-target: state.secondsNeeded || 1,
-completed: true
-})
+console.log(`[Launch Quest Completed] "${questName}"`)
 
-console.log(
-`%c[Launch Quest Completed] "${questName}" ✅`,
-"color:yellow;font-weight:bold;"
-)
+}catch(e){
 
-} catch(error) {
-
-console.error(
-`%c[Launch Quest Error] "${questName}"`,
-"color:red;font-weight:bold;",
-error
-)
+console.error("[Launch Quest Error]",e)
 
 }
 
