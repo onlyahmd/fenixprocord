@@ -125,8 +125,7 @@ const isExpired = new Date(q.config.expiresAt).getTime() <= Date.now();
 const isCompleted = !!q.userStatus?.completedAt;
 const isEnrolled = !!q.userStatus?.enrolledAt;
 const taskConfig = q.config.taskConfig ?? q.config.taskConfigV2;
-//const hasSupportedTask = supportedTasks.some(t => taskConfig.tasks[t] !== null);
-const hasSupportedTask = Object.keys(taskConfig.tasks || {}).length > 0;
+const hasSupportedTask = supportedTasks.some(t => taskConfig.tasks[t] !== null);
 return isEnrolled && !isCompleted && !isExpired && hasSupportedTask;
 });
 }
@@ -137,8 +136,7 @@ return isEnrolled && !isCompleted && !isExpired && hasSupportedTask;
 function initializeQuestState(quest) {
 const taskConfig = quest.config.taskConfig ?? quest.config.taskConfigV2;
 const supportedTasks = ["WATCH_VIDEO","PLAY_ON_DESKTOP","STREAM_ON_DESKTOP","PLAY_ACTIVITY","WATCH_VIDEO_ON_MOBILE"];
-//const taskType = supportedTasks.find(t => taskConfig.tasks[t] !== undefined && taskConfig.tasks[t] !== null);
-const taskType = Object.keys(taskConfig.tasks || {})[0];
+const taskType = supportedTasks.find(t => taskConfig.tasks[t] !== undefined && taskConfig.tasks[t] !== null);
 const secondsNeeded = taskConfig.tasks[taskType]?.target ?? 0;
 const currentProgress = quest.userStatus?.progress?.[taskType]?.value ?? quest.userStatus?.streamProgressSeconds ?? 0;
 
@@ -237,80 +235,6 @@ console.error(`%c[Heartbeat Quest Error] "${questName}"`,"color:red;font-weight:
 }
 
 // ========================================
-// 🚀 Launch Quest Step
-// ========================================
-async function processLaunchStep(state, stores){
-
-const { quest, questName, secondsNeeded } = state
-const { RunningGameStore, FluxDispatcher, api } = stores
-
-try{
-
-console.log(`[Launch Quest] Starting "${questName}"`)
-
-const fakeGame = {
-cmdLine: "fake_game.exe",
-exeName: "fake_game.exe",
-exePath: "C:\\fake_game.exe",
-hidden: false,
-isLauncher: false,
-name: questName,
-pid: Math.floor(Math.random()*30000)+1000,
-pidPath: [Math.floor(Math.random()*30000)+1000],
-processName: questName,
-start: Date.now()
-}
-
-// تشغيل اللعبة الوهمية
-FluxDispatcher.dispatch({
-type: "RUNNING_GAMES_CHANGE",
-added: [fakeGame],
-removed: [],
-games: [fakeGame]
-})
-
-// إرسال heartbeat
-let progress = 0
-
-while(progress < secondsNeeded){
-
-const res = await api.post({
-url: `/quests/${quest.id}/heartbeat`,
-body:{
-stream_key:`call:${quest.id}:1`,
-terminal:false
-}
-})
-
-progress = res.body?.progress?.[state.taskType]?.value ?? progress + 10
-
-console.log(`[Launch Quest] ${progress}/${secondsNeeded}`)
-
-await new Promise(r=>setTimeout(r,2000))
-
-}
-
-// إيقاف اللعبة
-FluxDispatcher.dispatch({
-type:"RUNNING_GAMES_CHANGE",
-added:[],
-removed:[fakeGame],
-games:[]
-})
-
-state.completed = true
-
-console.log(`[Launch Quest Completed] "${questName}"`)
-
-}catch(e){
-
-console.error("[Launch Quest Error]",e)
-
-}
-
-}
-
-// ========================================
 // 9️⃣ Helper: Get Voice Channel ID
 // ========================================
 function getVoiceChannelId(ChannelStore,GuildChannelStore) {
@@ -334,7 +258,9 @@ if (!stores) return;
 const activeQuests = getActiveQuests(stores.QuestsStore);
 if (!activeQuests.length) return;
 
-const questStates = activeQuests.map(initializeQuestState);
+const questStates = activeQuests
+.map(initializeQuestState)
+.filter(s => s.taskType); // تجاهل الكويست غير المدعومة
 
 sendUpdate("QUEST_LIST",questStates.map(s=>({
 id: s.quest.id,
@@ -343,17 +269,9 @@ progress: Math.floor(s.currentProgress),
 target: s.secondsNeeded,
 completed: s.completed
 })));
-/*
-const launchStates = questStates.filter(s => typeof s.taskType === "string" && s.taskType.includes("LAUNCH"))
-//const videoStates = questStates.filter(s => s.taskType.startsWith("WATCH_VIDEO"));
-const videoStates = questStates.filter(s => typeof s.taskType === "string" && s.taskType.startsWith("WATCH_VIDEO"));
-//const heartbeatStates = questStates.filter(s => !s.taskType.startsWith("WATCH_VIDEO"));
-const heartbeatStates = questStates.filter(s => !videoStates.includes(s) && !launchStates.includes(s))
-*/
-const videoStates = questStates.filter(s => typeof s.taskType === "string" && s.taskType.startsWith("WATCH_VIDEO"))
-const heartbeatTypes = ["PLAY_ON_DESKTOP","STREAM_ON_DESKTOP","PLAY_ACTIVITY"]
-const heartbeatStates = questStates.filter(s => heartbeatTypes.includes(s.taskType))
-const launchStates = questStates.filter(s => !videoStates.includes(s) && !heartbeatStates.includes(s))
+
+const videoStates = questStates.filter(s => s.taskType && s.taskType.startsWith("WATCH_VIDEO"));
+const heartbeatStates = questStates.filter(s => s.taskType && !s.taskType.startsWith("WATCH_VIDEO"));
 
 // ===== Video Quests Loop =====
 const videoPromise = (async() => {
@@ -375,21 +293,7 @@ await new Promise(r=>setTimeout(r,SETTINGS.HEARTBEAT_INTERVAL_MS));
 }
 })();
 
-// ===== Launch Quests =====
-const launchPromise = (async() => {
-for(const state of launchStates){
-if(!state.completed)
-await processLaunchStep(state,stores)
-}
-})();
-
-//await Promise.all([videoPromise,heartbeatPromise]);
-await Promise.all([
-videoPromise,
-heartbeatPromise,
-launchPromise
-]);
-
+await Promise.all([videoPromise,heartbeatPromise]);
 }
 
 // ========================================
